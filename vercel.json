@@ -1,0 +1,11 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "functions": {
+    "app/api/scrape/route.js": { "memory": 2048, "maxDuration": 60 },
+    "app/api/csv/route.js": { "memory": 2048, "maxDuration": 60 },
+    "app/api/cron/route.js": { "memory": 2048, "maxDuration": 60 }
+  },
+  "crons": [
+    { "path": "/api/cron", "schedule": "0 9 * * 1" }
+  ]
+}
