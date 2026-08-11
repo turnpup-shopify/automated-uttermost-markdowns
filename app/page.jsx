@@ -84,9 +84,15 @@ export default function Home() {
       )}
 
       <hr style={{ border: 'none', borderTop: '1px solid #222', margin: '40px 0 20px' }} />
+      <p style={{ marginBottom: 12 }}>
+        <a href="/logs" style={{ color: '#3b82f6', textDecoration: 'none' }}>
+          → View Shopify price-sync log (last 7 days)
+        </a>
+      </p>
       <p style={{ color: '#6b7075', fontSize: 13, lineHeight: 1.6 }}>
         Endpoints: <code>/api/scrape</code> (JSON), <code>/api/csv</code> (download),
-        <code> /api/cron</code> (scheduled snapshot). Add <code>?debug=1</code> to{' '}
+        <code> /api/cron</code> (scheduled snapshot), <code>/api/shopify</code> (price sync),
+        <code> /api/logs</code> (sync log). Add <code>?debug=1</code> to{' '}
         <code>/api/scrape</code> if login needs tuning.
       </p>
     </main>

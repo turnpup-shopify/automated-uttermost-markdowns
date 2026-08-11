@@ -122,8 +122,28 @@ curl -X POST "https://<your-app>.vercel.app/api/shopify?token=<CRON_SECRET>"
 curl -X POST "https://<your-app>.vercel.app/api/shopify?apply=1&token=<CRON_SECRET>"
 ```
 
-The response summarizes `updated`, `skippedNoMatch`, `unchanged`, `failed`, and
-a per-SKU `changes[]` list.
+**Sync a specific list** instead of scraping fresh — POST the scraped payload
+(the `SKU,Price,Compare At Price` shape) directly:
+
+```bash
+curl -X POST "https://<your-app>.vercel.app/api/shopify?apply=1&token=<CRON_SECRET>" \
+  -H "Content-Type: application/json" \
+  -d '{"products":[{"sku":"04358","price":"114.00","compareAtPrice":"228.00"}]}'
+```
+
+Each item maps to a Shopify variant found by exact SKU: `price` → the variant
+price, `compareAtPrice` → the compare-at price (the strike-through "was" price).
+Items with an empty `price` are skipped. The response summarizes `updated`,
+`skippedNoMatch`, `unchanged`, `failed`, and a per-SKU `changes[]` list.
+
+### The 7-day sync log
+
+Every sync (dry-run or apply) is recorded to **Vercel Blob** and kept for
+**7 days** (older entries are pruned automatically). View them in the app at
+**`/logs`** — each run shows what was updated, skipped (no SKU match), left
+unchanged, or failed, with before/after prices. This uses the same Blob store
+as the cron snapshots; if no Blob store is connected, syncs still run but aren't
+logged, and `/logs` shows a setup hint.
 
 > The scraped price is Uttermost's **trade** price. Set `PRICE_MARKUP` to your
 > retail multiplier, or edit `mapPrices()` in `lib/shopify.js` for a more
