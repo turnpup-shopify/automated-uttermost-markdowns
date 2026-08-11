@@ -13,10 +13,23 @@ export default function Home() {
     setRows([]);
     try {
       const res = await fetch('/api/scrape');
-      const data = await res.json();
+      const text = await res.text();
+      let data;
+      try {
+        data = JSON.parse(text);
+      } catch {
+        // Not JSON — usually a Vercel platform page (e.g. a function timeout).
+        const hint = /timeout|timed out|FUNCTION_INVOCATION_TIMEOUT/i.test(text)
+          ? 'The scrape function timed out. Try again (cold starts are slower), or set BROWSER_WS_ENDPOINT for a faster hosted browser.'
+          : `Server returned a non-JSON response (${res.status}). First bytes: ${text.slice(0, 120)}`;
+        throw new Error(hint);
+      }
       if (!res.ok) throw new Error(data.error || 'Scrape failed');
       setRows(data.products || []);
-      setStatus(`Done — ${data.count} products as of ${new Date(data.scrapedAt).toLocaleString()}.`);
+      const priced = typeof data.withPrice === 'number' ? ` (${data.withPrice} with a price)` : '';
+      setStatus(
+        `Done — ${data.count} products${priced} as of ${new Date(data.scrapedAt).toLocaleString()}.`
+      );
     } catch (err) {
       setStatus(`Error: ${err.message}`);
     } finally {
