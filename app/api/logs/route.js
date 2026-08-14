@@ -1,4 +1,4 @@
-import { readLogs, blobConfigured } from '../../../lib/log';
+import { readLogs, blobConfigured, blobEnvHint } from '../../../lib/log';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -6,9 +6,16 @@ export const dynamic = 'force-dynamic';
 // GET /api/logs -> the last 7 days of Shopify price-sync runs (newest first).
 export async function GET() {
   try {
-    const logs = await readLogs();
+    const configured = blobConfigured();
+    const logs = configured ? await readLogs() : [];
     return Response.json(
-      { configured: blobConfigured(), count: logs.length, logs },
+      {
+        configured,
+        count: logs.length,
+        // Diagnostic (names only, never values) to explain configured:false.
+        ...(configured ? {} : { blobEnvVarsSeen: blobEnvHint() }),
+        logs,
+      },
       { headers: { 'Cache-Control': 'no-store' } }
     );
   } catch (err) {
