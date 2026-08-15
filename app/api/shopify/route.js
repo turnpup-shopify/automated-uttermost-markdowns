@@ -20,6 +20,8 @@ export async function POST(request) {
 
   const url = new URL(request.url);
   const apply = url.searchParams.get('apply') === '1';
+  // Test mode: only sync the FIRST row that has a price — a safe end-to-end check.
+  const test = url.searchParams.get('test') === '1';
 
   try {
     let products;
@@ -34,6 +36,12 @@ export async function POST(request) {
       source = 'scrape';
     }
 
+    if (test) {
+      const first = products.find((p) => p.price && String(p.price).trim());
+      products = first ? [first] : [];
+      source = `${source}:test-first-row`;
+    }
+
     const result = await syncPricesToShopify(products, {
       dryRun: apply ? false : undefined, // undefined => honor SHOPIFY_DRY_RUN
     });
@@ -43,6 +51,7 @@ export async function POST(request) {
     const entry = {
       timestamp,
       mode: result.dryRun ? 'dry-run' : 'apply',
+      test,
       source,
       inputCount: products.length,
       markup: result.markup,
@@ -66,6 +75,7 @@ export async function POST(request) {
     return Response.json(
       {
         ...result,
+        test,
         source,
         timestamp,
         logged: !!logUrl,

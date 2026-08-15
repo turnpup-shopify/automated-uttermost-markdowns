@@ -8,8 +8,43 @@ export default function Home() {
   const [busy, setBusy] = useState(false);
   const [showSkipped, setShowSkipped] = useState(false);
 
+  // Test-mode (sync first row to Shopify) state.
+  const [token, setToken] = useState('');
+  const [testBusy, setTestBusy] = useState(false);
+  const [testStatus, setTestStatus] = useState('');
+  const [testResult, setTestResult] = useState(null);
+
   const priced = rows.filter((r) => r.price);
   const skipped = rows.filter((r) => !r.price);
+
+  async function testSync(apply) {
+    setTestBusy(true);
+    setTestResult(null);
+    setTestStatus(apply ? 'Applying first row to Shopify…' : 'Dry-running first row…');
+    try {
+      const qs = new URLSearchParams({ test: '1' });
+      if (apply) qs.set('apply', '1');
+      if (token) qs.set('token', token);
+      const res = await fetch(`/api/shopify?${qs.toString()}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ products: rows }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || `Failed (${res.status})`);
+      setTestResult(data);
+      const c = data.changes?.[0];
+      setTestStatus(
+        c
+          ? `${apply ? 'Applied' : 'Dry run'}: ${c.sku} — ${c.status}. Recorded in /logs.`
+          : `${apply ? 'Applied' : 'Dry run'}: nothing to sync (no priced row).`
+      );
+    } catch (err) {
+      setTestStatus(`Error: ${err.message}`);
+    } finally {
+      setTestBusy(false);
+    }
+  }
 
   async function runScrape() {
     setBusy(true);
@@ -87,6 +122,55 @@ export default function Home() {
         </div>
       )}
 
+      {priced.length > 0 && (
+        <div style={testPanel}>
+          <div style={{ fontWeight: 600, marginBottom: 4 }}>🧪 Test mode — sync first row to Shopify</div>
+          <p style={{ color: '#9aa0a6', fontSize: 13, margin: '0 0 12px', lineHeight: 1.6 }}>
+            Syncs only <code>{priced[0].sku}</code> (the first priced row) so you can verify the
+            Shopify connection and the 2.4× markup before running the full list. Requires the
+            Shopify env vars set. Result is recorded in <a href="/logs" style={linkInline}>/logs</a>.
+          </p>
+          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
+            <input
+              type="password"
+              value={token}
+              onChange={(e) => setToken(e.target.value)}
+              placeholder="CRON_SECRET (if set)"
+              style={input}
+            />
+            <button onClick={() => testSync(false)} disabled={testBusy} style={ghostBtn(testBusy)}>
+              {testBusy ? 'Working…' : 'Dry-run first row'}
+            </button>
+            <button onClick={() => testSync(true)} disabled={testBusy} style={dangerBtn(testBusy)}>
+              {testBusy ? 'Working…' : 'Apply first row (writes!)'}
+            </button>
+          </div>
+          {testStatus && (
+            <p style={{ color: testStatus.startsWith('Error') ? '#ff6b6b' : '#9aa0a6', marginTop: 10, fontSize: 13 }}>
+              {testStatus}
+            </p>
+          )}
+          {testResult?.changes?.[0] && (
+            <table style={{ borderCollapse: 'collapse', marginTop: 8, fontSize: 13 }}>
+              <tbody>
+                {(() => {
+                  const c = testResult.changes[0];
+                  return (
+                    <>
+                      <tr><td style={rk}>SKU</td><td style={rv}>{c.sku}</td></tr>
+                      <tr><td style={rk}>Product</td><td style={rv}>{c.product || '—'}</td></tr>
+                      <tr><td style={rk}>Status</td><td style={rv}>{c.status}{c.error ? `: ${c.error}` : ''}</td></tr>
+                      <tr><td style={rk}>Price</td><td style={rv}>{c.from?.price ? `$${c.from.price} → ` : ''}<strong>${c.to?.price}</strong></td></tr>
+                      <tr><td style={rk}>Compare-at</td><td style={rv}>{c.from?.compareAtPrice ? `$${c.from.compareAtPrice} → ` : ''}<strong>{c.to?.compareAtPrice ? `$${c.to.compareAtPrice}` : '—'}</strong></td></tr>
+                    </>
+                  );
+                })()}
+              </tbody>
+            </table>
+          )}
+        </div>
+      )}
+
       {skipped.length > 0 && (
         <div style={{ marginTop: 20 }}>
           <button
@@ -142,3 +226,10 @@ const th = {
   fontWeight: 600,
 };
 const td = { padding: '8px 12px', borderBottom: '1px solid #1c1f24' };
+const testPanel = { marginTop: 24, border: '1px solid #2a2f45', background: '#0e1220', borderRadius: 10, padding: 16 };
+const linkInline = { color: '#3b82f6', textDecoration: 'none' };
+const input = { background: '#0b0c0f', color: '#e8eaed', border: '1px solid #333', borderRadius: 6, padding: '8px 10px', fontSize: 13, minWidth: 180 };
+const ghostBtn = (d) => ({ background: 'transparent', color: '#e8eaed', border: '1px solid #3b82f6', padding: '8px 14px', borderRadius: 6, cursor: d ? 'default' : 'pointer', fontSize: 13 });
+const dangerBtn = (d) => ({ background: d ? '#5a2230' : '#e0335a', color: '#fff', border: 'none', padding: '8px 14px', borderRadius: 6, cursor: d ? 'default' : 'pointer', fontSize: 13 });
+const rk = { padding: '3px 10px 3px 0', color: '#6b7075', whiteSpace: 'nowrap', verticalAlign: 'top' };
+const rv = { padding: '3px 0', color: '#e8eaed' };

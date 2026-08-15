@@ -139,6 +139,19 @@ listed separately as skipped. The response summarizes `updated`, `unchanged`,
 `noMatch`, `failed`, `noPrice`, a per-SKU `changes[]` list (each with
 before→after `from`/`to`), and a `skippedNoPrice[]` list.
 
+### Test mode (sync just the first row)
+
+Before running the full list, use **test mode** to sync only the first priced
+SKU — a safe end-to-end check of the Shopify connection and the 2.4× markup.
+
+- **In the app:** scrape on the home page, then use the **🧪 Test mode** panel
+  (enter `CRON_SECRET` if set) — *Dry-run first row* or *Apply first row*.
+- **Via API:** add `?test=1` (optionally `&apply=1`):
+
+  ```bash
+  curl -X POST "https://<your-app>.vercel.app/api/shopify?test=1&token=<CRON_SECRET>"
+  ```
+
 ### The 7-day sync log
 
 Every sync (dry-run or apply) is recorded to **Vercel Blob** and kept for
