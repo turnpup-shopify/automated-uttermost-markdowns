@@ -139,6 +139,19 @@ listed separately as skipped. The response summarizes `updated`, `unchanged`,
 `noMatch`, `failed`, `noPrice`, a per-SKU `changes[]` list (each with
 before→after `from`/`to`), and a `skippedNoPrice[]` list.
 
+## Pagination
+
+Overstocks is a single infinite-scroll page. **Quarterly is paginated** (`?page=N`),
+so its scrape iterates pages, accumulating unique SKUs until a page returns nothing
+new (or the time budget is hit). Config lives in `lib/sources.js` (`paginate`,
+`maxPages`); override the page cap per source with e.g. `QUARTERLY_MAX_PAGES=30`.
+
+The `/api/scrape?source=quarterly` response includes `pagesCovered` and a `logs`
+array with per-page counts (`Page 2: 24 products, 24 new …`) so you can confirm
+pagination is working. If many pages push the scrape past ~50s, set
+`BROWSER_WS_ENDPOINT` (faster hosted browser) or raise `SCRAPE_BUDGET_MS` on a
+plan that allows longer functions.
+
 ## 24-hour scrape cache
 
 To avoid logging into uttermost.com more than necessary (and risking a block),

@@ -74,8 +74,9 @@ export default function PromoPage({ source, title, promoUrl }) {
       if (!res.ok) throw new Error(data.error || 'Scrape failed');
       setRows(data.products || []);
       const withP = typeof data.withPrice === 'number' ? ` (${data.withPrice} with a price)` : '';
+      const pagesTag = data.pagesCovered > 1 ? ` across ${data.pagesCovered} pages` : '';
       const cacheTag = data.cached ? ` · from 24h cache, ${cacheAge(data.cacheAgeMs)} old` : ' · freshly scraped';
-      setStatus(`Done — ${data.count} products${withP} as of ${new Date(data.scrapedAt).toLocaleString()}${cacheTag}.`);
+      setStatus(`Done — ${data.count} products${withP}${pagesTag} as of ${new Date(data.scrapedAt).toLocaleString()}${cacheTag}.`);
     } catch (err) {
       setStatus(`Error: ${err.message}`);
     } finally {
