@@ -1,41 +1,43 @@
-import { getOverstocks } from '../../../lib/overstocks';
+import { getPromotion } from '../../../lib/overstocks';
 import { toCsv } from '../../../lib/csv';
 import { isAuthorized } from '../../../lib/auth';
 import { getBlobToken, putBlob } from '../../../lib/blob';
+import { resolveSource } from '../../../lib/sources';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
 
-// Scheduled by vercel.json ("0 9 * * 1" = every Monday 09:00 UTC).
-// Also callable manually: /api/cron?token=<CRON_SECRET>
-// Scrapes, then archives a timestamped CSV + JSON snapshot to Vercel Blob
-// (if a Blob store is connected). Always returns the fresh data inline.
+// Scheduled by vercel.json (one entry per source). Also callable manually:
+// /api/cron?source=quarterly&token=<CRON_SECRET>
+// Scrapes fresh, refreshes the 24h cache, and archives a timestamped CSV + JSON
+// snapshot to Vercel Blob under <source>/ (if a Blob store is connected).
 export async function GET(request) {
   if (!isAuthorized(request)) {
     return Response.json({ error: 'Unauthorized' }, { status: 401 });
   }
+  const source = resolveSource(new URL(request.url).searchParams.get('source'));
 
   try {
-    // Weekly scheduled refresh: scrape fresh and repopulate the 24h cache.
-    const result = await getOverstocks({ force: true });
+    const result = await getPromotion(source, { force: true });
     const csv = toCsv(result.products);
     const stamp = result.scrapedAt.replace(/[:.]/g, '-');
 
     let stored = null;
     if (getBlobToken()) {
       const [csvBlob, jsonBlob, latest] = await Promise.all([
-        putBlob(`overstocks/${stamp}.csv`, csv, { contentType: 'text/csv' }),
-        putBlob(`overstocks/${stamp}.json`, JSON.stringify({ ...result, logs: undefined }, null, 2), {
+        putBlob(`${source}/${stamp}.csv`, csv, { contentType: 'text/csv' }),
+        putBlob(`${source}/${stamp}.json`, JSON.stringify({ ...result, logs: undefined }, null, 2), {
           contentType: 'application/json',
         }),
-        putBlob(`overstocks/latest.csv`, csv, { contentType: 'text/csv' }),
+        putBlob(`${source}/latest.csv`, csv, { contentType: 'text/csv' }),
       ]);
       stored = { csvUrl: csvBlob.url, jsonUrl: jsonBlob.url, latestUrl: latest.url };
     }
 
     return Response.json({
       ok: true,
+      source,
       count: result.count,
       scrapedAt: result.scrapedAt,
       stored,

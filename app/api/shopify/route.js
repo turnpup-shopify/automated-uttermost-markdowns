@@ -1,7 +1,8 @@
-import { getOverstocks } from '../../../lib/overstocks';
+import { getPromotion } from '../../../lib/overstocks';
 import { syncPricesToShopify } from '../../../lib/shopify';
 import { isAuthorized } from '../../../lib/auth';
 import { writeLog, blobConfigured } from '../../../lib/log';
+import { resolveSource } from '../../../lib/sources';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -22,24 +23,25 @@ export async function POST(request) {
   const apply = url.searchParams.get('apply') === '1';
   // Test mode: only sync the FIRST row that has a price — a safe end-to-end check.
   const test = url.searchParams.get('test') === '1';
+  const promo = resolveSource(url.searchParams.get('source'));
 
   try {
     let products;
-    let source;
+    let origin;
     const body = await request.json().catch(() => null);
     if (body?.products?.length) {
       products = body.products;
-      source = 'payload';
+      origin = 'payload';
     } else {
-      const scraped = await getOverstocks(); // uses the 24h cache
+      const scraped = await getPromotion(promo); // uses the 24h cache
       products = scraped.products;
-      source = scraped.cached ? 'scrape-cache' : 'scrape';
+      origin = scraped.cached ? 'scrape-cache' : 'scrape';
     }
 
     if (test) {
       const first = products.find((p) => p.price && String(p.price).trim());
       products = first ? [first] : [];
-      source = `${source}:test-first-row`;
+      origin = `${origin}:test-first-row`;
     }
 
     const result = await syncPricesToShopify(products, {
@@ -52,7 +54,8 @@ export async function POST(request) {
       timestamp,
       mode: result.dryRun ? 'dry-run' : 'apply',
       test,
-      source,
+      promo,
+      source: origin,
       inputCount: products.length,
       markup: result.markup,
       summary: {
@@ -76,7 +79,8 @@ export async function POST(request) {
       {
         ...result,
         test,
-        source,
+        promo,
+        source: origin,
         timestamp,
         logged: !!logUrl,
         logNote: blobConfigured()

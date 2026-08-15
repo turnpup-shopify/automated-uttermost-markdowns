@@ -36,13 +36,19 @@ export default function Logs() {
   }, []);
 
   return (
-    <main style={{ maxWidth: 1000, margin: '0 auto', padding: '48px 20px' }}>
+    <main style={{ maxWidth: 1000, margin: '0 auto', padding: '40px 20px' }}>
+      <nav style={{ display: 'flex', gap: 8, marginBottom: 24 }}>
+        {[
+          { href: '/', key: 'overstocks', label: 'Overstocks' },
+          { href: '/quarterly', key: 'quarterly', label: 'Quarterly' },
+          { href: '/logs', key: 'logs', label: 'Sync log' },
+        ].map((n) => (
+          <a key={n.href} href={n.href} style={tab(n.key === 'logs')}>{n.label}</a>
+        ))}
+      </nav>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <h1 style={{ fontSize: 26, margin: 0 }}>Shopify price-sync log</h1>
-        <div style={{ display: 'flex', gap: 12 }}>
-          <a href="/" style={link}>← Home</a>
-          <button onClick={load} style={smallBtn}>Refresh</button>
-        </div>
+        <button onClick={load} style={smallBtn}>Refresh</button>
       </div>
       <p style={{ color: '#9aa0a6', lineHeight: 1.6 }}>
         Every price sync (successful and failed) is recorded here and kept for{' '}
@@ -86,6 +92,7 @@ function RunCard({ run }) {
     <section style={card}>
       <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'baseline' }}>
         <strong style={{ fontSize: 15 }}>{new Date(run.timestamp).toLocaleString()}</strong>
+        {run.promo && <span style={badge('#7c5cff')}>{String(run.promo).toUpperCase()}</span>}
         <span style={badge(run.mode === 'apply' ? '#22c55e' : '#3b82f6')}>
           {run.mode === 'apply' ? 'APPLIED' : 'DRY RUN'}
         </span>
@@ -174,6 +181,11 @@ function rank(status) {
   return i === -1 ? 99 : i;
 }
 
+const tab = (active) => ({
+  padding: '8px 16px', borderRadius: 8, fontSize: 14, textDecoration: 'none',
+  background: active ? '#3b82f6' : '#15171c', color: active ? '#fff' : '#9aa0a6',
+  border: `1px solid ${active ? '#3b82f6' : '#2a2d33'}`,
+});
 const link = { color: '#3b82f6', textDecoration: 'none', fontSize: 14, alignSelf: 'center' };
 const smallBtn = { background: '#3b82f6', color: '#fff', border: 'none', padding: '6px 14px', borderRadius: 6, cursor: 'pointer', fontSize: 14 };
 const collapseBtn = { background: 'transparent', color: '#9aa0a6', border: '1px solid #333', padding: '6px 12px', borderRadius: 6, cursor: 'pointer', fontSize: 13 };

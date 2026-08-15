@@ -11,7 +11,7 @@ It gives you the data three ways:
 
 | Route | What it does |
 |-------|--------------|
-| **Web UI** (`/`) | "Scrape & preview" button + "Download CSV" button. |
+| **Two promo pages** (`/` overstocks, `/quarterly`) | Identical scrape + Shopify-sync UI, one per promotion. Each has its own 24h cache. |
 | `GET /api/scrape` | JSON: `{ count, scrapedAt, products: [...] }`. Add `?debug=1` for logs + a screenshot. |
 | `GET /api/csv` | Downloads `uttermost-overstocks-YYYY-MM-DD.csv` (`SKU,Price,Compare At Price`). |
 | `GET /api/cron` | Scheduled weekly; archives a timestamped CSV + JSON snapshot to Vercel Blob. |
