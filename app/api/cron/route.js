@@ -1,7 +1,7 @@
 import { getOverstocks } from '../../../lib/overstocks';
 import { toCsv } from '../../../lib/csv';
 import { isAuthorized } from '../../../lib/auth';
-import { getBlobToken } from '../../../lib/log';
+import { getBlobToken, putBlob } from '../../../lib/blob';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -23,35 +23,14 @@ export async function GET(request) {
     const stamp = result.scrapedAt.replace(/[:.]/g, '-');
 
     let stored = null;
-    const blobToken = getBlobToken();
-    if (blobToken) {
-      const { put } = await import('@vercel/blob');
-      const [csvBlob, jsonBlob] = await Promise.all([
-        put(`overstocks/${stamp}.csv`, csv, {
-          access: 'public',
-          contentType: 'text/csv',
-          addRandomSuffix: false,
-          token: blobToken,
+    if (getBlobToken()) {
+      const [csvBlob, jsonBlob, latest] = await Promise.all([
+        putBlob(`overstocks/${stamp}.csv`, csv, { contentType: 'text/csv' }),
+        putBlob(`overstocks/${stamp}.json`, JSON.stringify({ ...result, logs: undefined }, null, 2), {
+          contentType: 'application/json',
         }),
-        put(
-          `overstocks/${stamp}.json`,
-          JSON.stringify({ ...result, logs: undefined }, null, 2),
-          {
-            access: 'public',
-            contentType: 'application/json',
-            addRandomSuffix: false,
-            token: blobToken,
-          }
-        ),
+        putBlob(`overstocks/latest.csv`, csv, { contentType: 'text/csv' }),
       ]);
-      // Also overwrite a stable "latest" pointer for easy consumption.
-      const latest = await put(`overstocks/latest.csv`, csv, {
-        access: 'public',
-        contentType: 'text/csv',
-        addRandomSuffix: false,
-        allowOverwrite: true,
-        token: blobToken,
-      });
       stored = { csvUrl: csvBlob.url, jsonUrl: jsonBlob.url, latestUrl: latest.url };
     }
 

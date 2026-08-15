@@ -10,7 +10,7 @@ export async function GET(request) {
   const write = new URL(request.url).searchParams.get('write') === '1';
   const diag = await cacheDiag({ write });
   return Response.json(
-    { build: 'cache-diag-v3', ...diag, ttlHours: CACHE_TTL_MS / 3_600_000 },
+    { build: 'blob-private-v4', ...diag, ttlHours: CACHE_TTL_MS / 3_600_000 },
     { headers: { 'Cache-Control': 'no-store' } }
   );
 }
