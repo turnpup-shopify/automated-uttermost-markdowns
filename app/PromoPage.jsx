@@ -17,6 +17,7 @@ export default function PromoPage({ source, title, promoUrl }) {
   const [rows, setRows] = useState([]);
   const [busy, setBusy] = useState(false);
   const [showSkipped, setShowSkipped] = useState(false);
+  const [meta, setMeta] = useState(null); // { complete, nextPage, pagesCovered }
 
   const [token, setToken] = useState('');
   const [testBusy, setTestBusy] = useState(false);
@@ -73,10 +74,12 @@ export default function PromoPage({ source, title, promoUrl }) {
       }
       if (!res.ok) throw new Error(data.error || 'Scrape failed');
       setRows(data.products || []);
+      setMeta({ complete: data.complete, nextPage: data.nextPage, pagesCovered: data.pagesCovered });
       const withP = typeof data.withPrice === 'number' ? ` (${data.withPrice} with a price)` : '';
-      const pagesTag = data.pagesCovered > 1 ? ` across ${data.pagesCovered} pages` : '';
       const cacheTag = data.cached ? ` · from 24h cache, ${cacheAge(data.cacheAgeMs)} old` : ' · freshly scraped';
-      setStatus(`Done — ${data.count} products${withP}${pagesTag} as of ${new Date(data.scrapedAt).toLocaleString()}${cacheTag}.`);
+      const partialTag =
+        data.complete === false ? ` · ⚠ PARTIAL — resumes at page ${data.nextPage} on the next run` : '';
+      setStatus(`Done — ${data.count} products${withP} as of ${new Date(data.scrapedAt).toLocaleString()}${cacheTag}${partialTag}.`);
     } catch (err) {
       setStatus(`Error: ${err.message}`);
     } finally {
@@ -153,17 +156,23 @@ export default function PromoPage({ source, title, promoUrl }) {
 
       <h1 style={{ fontSize: 28, marginBottom: 8 }}>{title}</h1>
       <p style={{ color: '#9aa0a6', marginTop: 0, lineHeight: 1.6 }}>
-        Logs into uttermost.com, opens{' '}
-        <a href={promoUrl} target="_blank" rel="noreferrer" style={linkInline}>the {source} page</a>, and pulls
-        the latest markdown prices (SKU, price, compare-at). Cached 24h to avoid over-hitting the site.
+        Logs into uttermost.com, scrapes the page below, and pulls the latest markdown prices
+        (SKU, price, compare-at). Cached 24h to avoid over-hitting the site.
       </p>
+      <div style={{ margin: '8px 0 4px', fontSize: 13, color: '#9aa0a6' }}>
+        Source URL:{' '}
+        <a href={promoUrl} target="_blank" rel="noreferrer"
+           style={{ ...linkInline, fontFamily: 'ui-monospace, monospace', wordBreak: 'break-all' }}>
+          {promoUrl}
+        </a>
+      </div>
 
       <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', margin: '20px 0 6px' }}>
         <button onClick={() => runScrape(false)} disabled={busy} style={btn(busy)}>
           {busy ? 'Working…' : 'Scrape & preview'}
         </button>
         <button onClick={() => runScrape(true)} disabled={busy} style={ghostBtn(busy)}>
-          Scrape fresh
+          {meta && meta.complete === false ? `Continue from page ${meta.nextPage}` : 'Scrape fresh'}
         </button>
         <a href={`/api/csv?source=${source}`} style={{ ...btn(false), textDecoration: 'none', display: 'inline-flex', alignItems: 'center' }}>
           Download CSV

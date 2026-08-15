@@ -146,9 +146,16 @@ so its scrape iterates pages, accumulating unique SKUs until a page returns noth
 new (or the time budget is hit). Config lives in `lib/sources.js` (`paginate`,
 `maxPages`); override the page cap per source with e.g. `QUARTERLY_MAX_PAGES=30`.
 
-The `/api/scrape?source=quarterly` response includes `pagesCovered` and a `logs`
-array with per-page counts (`Page 2: 24 products, 24 new …`) so you can confirm
-pagination is working. If many pages push the scrape past ~50s, set
+The `/api/scrape?source=quarterly` response includes `pagesCovered`, `complete`,
+`nextPage`, and a `logs` array with per-page counts (`Page 2: 24 products, 24
+new …`) so you can confirm pagination is working.
+
+**Resumable across runs:** if a run hits the ~50s time budget before finishing
+all pages, it saves progress to the cache as `complete: false` with a `nextPage`.
+The next run (the "Continue from page N" button, or the weekly cron) resumes from
+that page and merges with what's already cached, until it reaches the end and
+flips to `complete: true`. So a large paginated promo fills in over a few runs
+rather than needing one long scrape. To finish in a single pass instead, set
 `BROWSER_WS_ENDPOINT` (faster hosted browser) or raise `SCRAPE_BUDGET_MS` on a
 plan that allows longer functions.
 
