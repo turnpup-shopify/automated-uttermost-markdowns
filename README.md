@@ -131,10 +131,13 @@ curl -X POST "https://<your-app>.vercel.app/api/shopify?apply=1&token=<CRON_SECR
   -d '{"products":[{"sku":"04358","price":"114.00","compareAtPrice":"228.00"}]}'
 ```
 
-Each item maps to a Shopify variant found by exact SKU: `price` → the variant
-price, `compareAtPrice` → the compare-at price (the strike-through "was" price).
-Items with an empty `price` are skipped. The response summarizes `updated`,
-`skippedNoMatch`, `unchanged`, `failed`, and a per-SKU `changes[]` list.
+Each item maps to a Shopify variant found by exact SKU. A **markup** (default
+**2.4×**, via `PRICE_MARKUP`) is applied to BOTH values before writing:
+`price × 2.4` → the variant price, `compareAtPrice × 2.4` → the compare-at
+(strike-through "was") price. Items with **no scraped price are left off** and
+listed separately as skipped. The response summarizes `updated`, `unchanged`,
+`noMatch`, `failed`, `noPrice`, a per-SKU `changes[]` list (each with
+before→after `from`/`to`), and a `skippedNoPrice[]` list.
 
 ### The 7-day sync log
 

@@ -45,13 +45,16 @@ export async function POST(request) {
       mode: result.dryRun ? 'dry-run' : 'apply',
       source,
       inputCount: products.length,
+      markup: result.markup,
       summary: {
         updated: result.updated,
         unchanged: result.unchanged,
-        skippedNoMatch: result.skippedNoMatch,
+        noMatch: result.noMatch,
         failed: result.failed,
+        noPrice: result.noPrice,
       },
       changes: result.changes,
+      skippedNoPrice: result.skippedNoPrice,
     };
     let logUrl = null;
     try {

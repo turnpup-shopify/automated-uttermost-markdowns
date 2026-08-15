@@ -6,6 +6,10 @@ export default function Home() {
   const [status, setStatus] = useState('');
   const [rows, setRows] = useState([]);
   const [busy, setBusy] = useState(false);
+  const [showSkipped, setShowSkipped] = useState(false);
+
+  const priced = rows.filter((r) => r.price);
+  const skipped = rows.filter((r) => !r.price);
 
   async function runScrape() {
     setBusy(true);
@@ -58,7 +62,7 @@ export default function Home() {
         <p style={{ color: status.startsWith('Error') ? '#ff6b6b' : '#9aa0a6' }}>{status}</p>
       )}
 
-      {rows.length > 0 && (
+      {priced.length > 0 && (
         <div style={{ overflowX: 'auto', marginTop: 16 }}>
           <table style={{ borderCollapse: 'collapse', width: '100%', fontSize: 14 }}>
             <thead>
@@ -69,7 +73,7 @@ export default function Home() {
               </tr>
             </thead>
             <tbody>
-              {rows.map((r, i) => (
+              {priced.map((r, i) => (
                 <tr key={r.sku + i}>
                   <td style={td}>{r.sku}</td>
                   <td style={td}>{r.price ? `$${r.price}` : '—'}</td>
@@ -80,6 +84,28 @@ export default function Home() {
               ))}
             </tbody>
           </table>
+        </div>
+      )}
+
+      {skipped.length > 0 && (
+        <div style={{ marginTop: 20 }}>
+          <button
+            onClick={() => setShowSkipped((s) => !s)}
+            style={{
+              background: 'transparent', color: '#9aa0a6', border: '1px solid #333',
+              padding: '8px 14px', borderRadius: 6, cursor: 'pointer', fontSize: 13,
+            }}
+          >
+            {showSkipped ? '▼' : '▶'} Skipped — no price ({skipped.length})
+          </button>
+          {showSkipped && (
+            <div style={{ marginTop: 8, color: '#9aa0a6', fontSize: 13, lineHeight: 1.8 }}>
+              These SKUs had no price on the overstocks page and are left off the upload:
+              <div style={{ marginTop: 4, fontFamily: 'ui-monospace, monospace', color: '#c9cdd2' }}>
+                {skipped.map((r) => r.sku).join(', ')}
+              </div>
+            </div>
+          )}
         </div>
       )}
 
