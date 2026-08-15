@@ -1,23 +1,14 @@
 import { isAuthorized } from '../../../lib/auth';
-import { readCache, clearCache, cacheEnabled, CACHE_TTL_MS } from '../../../lib/cache';
+import { clearCache, cacheEnabled, cacheDiag, CACHE_TTL_MS } from '../../../lib/cache';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-// GET /api/cache  -> cache status (enabled, whether populated, age)
+// GET /api/cache  -> full cache diagnostics (token present? entry found? age?)
 export async function GET() {
-  const enabled = cacheEnabled();
-  const cached = enabled ? await readCache() : null;
-  const ageMs = cached?.scrapedAt ? Date.now() - new Date(cached.scrapedAt).getTime() : null;
+  const diag = await cacheDiag();
   return Response.json(
-    {
-      enabled,
-      cached: !!cached,
-      scrapedAt: cached?.scrapedAt || null,
-      count: cached?.count ?? null,
-      ageHours: ageMs != null ? Number((ageMs / 3_600_000).toFixed(1)) : null,
-      ttlHours: CACHE_TTL_MS / 3_600_000,
-    },
+    { build: 'cache-diag-v2', ...diag, ttlHours: CACHE_TTL_MS / 3_600_000 },
     { headers: { 'Cache-Control': 'no-store' } }
   );
 }
