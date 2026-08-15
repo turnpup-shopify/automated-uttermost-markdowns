@@ -4,11 +4,13 @@ import { clearCache, cacheEnabled, cacheDiag, CACHE_TTL_MS } from '../../../lib/
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-// GET /api/cache  -> full cache diagnostics (token present? entry found? age?)
-export async function GET() {
-  const diag = await cacheDiag();
+// GET /api/cache          -> cache diagnostics (token present? entry found? age?)
+// GET /api/cache?write=1  -> also run a live write self-test and report the error
+export async function GET(request) {
+  const write = new URL(request.url).searchParams.get('write') === '1';
+  const diag = await cacheDiag({ write });
   return Response.json(
-    { build: 'cache-diag-v2', ...diag, ttlHours: CACHE_TTL_MS / 3_600_000 },
+    { build: 'cache-diag-v3', ...diag, ttlHours: CACHE_TTL_MS / 3_600_000 },
     { headers: { 'Cache-Control': 'no-store' } }
   );
 }
