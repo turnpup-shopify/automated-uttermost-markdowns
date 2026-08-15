@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 export default function Home() {
   const [status, setStatus] = useState('');
@@ -8,12 +8,57 @@ export default function Home() {
   const [busy, setBusy] = useState(false);
   const [showSkipped, setShowSkipped] = useState(false);
 
-  // Shared CRON_SECRET (used for clear-cache and Shopify sync).
+  // Shared CRON_SECRET (used for clear-cache and Shopify sync). Remembered in
+  // the browser so you only enter it once.
   const [token, setToken] = useState('');
   const [testBusy, setTestBusy] = useState(false);
   const [testStatus, setTestStatus] = useState('');
   const [testResult, setTestResult] = useState(null);
   const [cacheMsg, setCacheMsg] = useState('');
+
+  // Full-run (sync all rows) state.
+  const [fullBusy, setFullBusy] = useState(false);
+  const [fullStatus, setFullStatus] = useState('');
+  const [fullResult, setFullResult] = useState(null);
+
+  useEffect(() => {
+    const saved = localStorage.getItem('cron_secret');
+    if (saved) setToken(saved);
+  }, []);
+  useEffect(() => {
+    if (token) localStorage.setItem('cron_secret', token);
+    else localStorage.removeItem('cron_secret');
+  }, [token]);
+
+  async function fullSync(apply) {
+    if (apply && !window.confirm(`Apply new prices to ${priced.length} Shopify variants now?`)) return;
+    setFullBusy(true);
+    setFullResult(null);
+    setFullStatus(apply ? `Applying ${priced.length} rows to Shopify…` : `Dry-running ${priced.length} rows…`);
+    try {
+      const qs = new URLSearchParams();
+      if (apply) qs.set('apply', '1');
+      if (token) qs.set('token', token);
+      const res = await fetch(`/api/shopify?${qs.toString()}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ products: rows }),
+      });
+      const data = await res.json();
+      if (res.status === 401) throw new Error('Unauthorized — enter your CRON_SECRET above and retry.');
+      if (!res.ok) throw new Error(data.error || `Failed (${res.status})`);
+      setFullResult(data);
+      setFullStatus(
+        `${apply ? 'Applied' : 'Dry run'}: ${data.updated} ${apply ? 'updated' : 'would update'}, ` +
+          `${data.unchanged} unchanged, ${data.noMatch} no-match, ${data.failed} failed, ` +
+          `${data.noPrice} skipped. Recorded in /logs.`
+      );
+    } catch (err) {
+      setFullStatus(`Error: ${err.message}`);
+    } finally {
+      setFullBusy(false);
+    }
+  }
 
   const priced = rows.filter((r) => r.price);
   const skipped = rows.filter((r) => !r.price);
@@ -135,7 +180,7 @@ export default function Home() {
           type="password"
           value={token}
           onChange={(e) => setToken(e.target.value)}
-          placeholder="CRON_SECRET (for clear-cache & sync)"
+          placeholder="CRON_SECRET (remembered in this browser)"
           style={input}
         />
         <button onClick={clearCache} disabled={busy} style={ghostBtn(busy)}>
@@ -220,6 +265,39 @@ export default function Home() {
         </div>
       )}
 
+      {priced.length > 0 && (
+        <div style={fullPanel}>
+          <div style={{ fontWeight: 600, marginBottom: 4 }}>🚀 Full run — sync all {priced.length} priced rows</div>
+          <p style={{ color: '#9aa0a6', fontSize: 13, margin: '0 0 12px', lineHeight: 1.6 }}>
+            Applies the 2.4× markup to every priced SKU and updates matching Shopify variants.
+            {skipped.length > 0 && <> {skipped.length} with no price are skipped.</>} Do a dry run
+            first, then apply. Every run is recorded in <a href="/logs" style={linkInline}>/logs</a>.
+          </p>
+          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
+            <button onClick={() => fullSync(false)} disabled={fullBusy} style={ghostBtn(fullBusy)}>
+              {fullBusy ? 'Working…' : `Dry-run all ${priced.length}`}
+            </button>
+            <button onClick={() => fullSync(true)} disabled={fullBusy} style={dangerBtn(fullBusy)}>
+              {fullBusy ? 'Working…' : `Apply all ${priced.length} (writes!)`}
+            </button>
+          </div>
+          {fullStatus && (
+            <p style={{ color: fullStatus.startsWith('Error') ? '#ff6b6b' : '#9aa0a6', marginTop: 10, fontSize: 13 }}>
+              {fullStatus}
+            </p>
+          )}
+          {fullResult && (
+            <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', marginTop: 6, fontSize: 13 }}>
+              <span style={{ color: '#22c55e' }}>✓ {fullResult.updated} {fullResult.dryRun ? 'would update' : 'updated'}</span>
+              <span style={{ color: '#6b7075' }}>= {fullResult.unchanged} unchanged</span>
+              <span style={{ color: '#f59e0b' }}>⚠ {fullResult.noMatch} no SKU match</span>
+              <span style={{ color: '#ff6b6b' }}>✕ {fullResult.failed} failed</span>
+              <span style={{ color: '#9aa0a6' }}>⊘ {fullResult.noPrice} skipped</span>
+            </div>
+          )}
+        </div>
+      )}
+
       {skipped.length > 0 && (
         <div style={{ marginTop: 20 }}>
           <button
@@ -282,6 +360,7 @@ function cacheAge(ms) {
   return `${h.toFixed(1)}h`;
 }
 const testPanel = { marginTop: 24, border: '1px solid #2a2f45', background: '#0e1220', borderRadius: 10, padding: 16 };
+const fullPanel = { marginTop: 16, border: '1px solid #45283a', background: '#170e16', borderRadius: 10, padding: 16 };
 const linkInline = { color: '#3b82f6', textDecoration: 'none' };
 const input = { background: '#0b0c0f', color: '#e8eaed', border: '1px solid #333', borderRadius: 6, padding: '8px 10px', fontSize: 13, minWidth: 180 };
 const ghostBtn = (d) => ({ background: 'transparent', color: '#e8eaed', border: '1px solid #3b82f6', padding: '8px 14px', borderRadius: 6, cursor: d ? 'default' : 'pointer', fontSize: 13 });

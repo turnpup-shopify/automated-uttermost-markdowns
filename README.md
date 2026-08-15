@@ -158,8 +158,11 @@ Requires a Blob store; without one, every call scrapes fresh (no caching).
 Before running the full list, use **test mode** to sync only the first priced
 SKU — a safe end-to-end check of the Shopify connection and the 2.4× markup.
 
-- **In the app:** scrape on the home page, then use the **🧪 Test mode** panel
-  (enter `CRON_SECRET` if set) — *Dry-run first row* or *Apply first row*.
+- **In the app:** scrape on the home page, then use the **🧪 Test mode** panel —
+  *Dry-run first row* or *Apply first row*. (Enter `CRON_SECRET` once in the
+  field near the top; it's remembered in your browser.)
+- **Full run:** the **🚀 Full run** panel syncs all priced rows — *Dry-run all*,
+  then *Apply all*.
 - **Via API:** add `?test=1` (optionally `&apply=1`):
 
   ```bash
