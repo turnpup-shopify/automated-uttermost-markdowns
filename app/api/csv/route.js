@@ -1,4 +1,4 @@
-import { scrapeOverstocks } from '../../../lib/scrape';
+import { getOverstocks } from '../../../lib/overstocks';
 import { toCsv } from '../../../lib/csv';
 
 export const runtime = 'nodejs';
@@ -8,7 +8,7 @@ export const maxDuration = 60;
 // GET /api/csv -> downloads uttermost-overstocks-YYYY-MM-DD.csv
 export async function GET() {
   try {
-    const { products } = await scrapeOverstocks();
+    const { products } = await getOverstocks();
     const csv = toCsv(products);
     const date = new Date().toISOString().slice(0, 10);
     return new Response(csv, {

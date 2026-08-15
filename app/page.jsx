@@ -8,14 +8,32 @@ export default function Home() {
   const [busy, setBusy] = useState(false);
   const [showSkipped, setShowSkipped] = useState(false);
 
-  // Test-mode (sync first row to Shopify) state.
+  // Shared CRON_SECRET (used for clear-cache and Shopify sync).
   const [token, setToken] = useState('');
   const [testBusy, setTestBusy] = useState(false);
   const [testStatus, setTestStatus] = useState('');
   const [testResult, setTestResult] = useState(null);
+  const [cacheMsg, setCacheMsg] = useState('');
 
   const priced = rows.filter((r) => r.price);
   const skipped = rows.filter((r) => !r.price);
+
+  async function clearCache() {
+    setCacheMsg('Clearing cache…');
+    try {
+      const qs = token ? `?token=${encodeURIComponent(token)}` : '';
+      const res = await fetch(`/api/cache${qs}`, { method: 'POST' });
+      const data = await res.json();
+      if (res.status === 401) {
+        setCacheMsg('Unauthorized — enter your CRON_SECRET above, then try again.');
+        return;
+      }
+      if (!res.ok) throw new Error(data.error || 'Clear failed');
+      setCacheMsg(data.note || (data.cleared ? 'Cache cleared.' : 'Cache was empty.'));
+    } catch (err) {
+      setCacheMsg(`Error: ${err.message}`);
+    }
+  }
 
   async function testSync(apply) {
     setTestBusy(true);
@@ -31,6 +49,9 @@ export default function Home() {
         body: JSON.stringify({ products: rows }),
       });
       const data = await res.json();
+      if (res.status === 401) {
+        throw new Error('Unauthorized — enter your CRON_SECRET in the field above and retry.');
+      }
       if (!res.ok) throw new Error(data.error || `Failed (${res.status})`);
       setTestResult(data);
       const c = data.changes?.[0];
@@ -46,12 +67,17 @@ export default function Home() {
     }
   }
 
-  async function runScrape() {
+  async function runScrape(fresh = false) {
     setBusy(true);
-    setStatus('Logging in and scraping… this can take 20–60 seconds.');
+    setCacheMsg('');
+    setStatus(
+      fresh
+        ? 'Bypassing cache — logging in and scraping fresh… (20–60s)'
+        : 'Loading… (served from the 24h cache when available)'
+    );
     setRows([]);
     try {
-      const res = await fetch('/api/scrape');
+      const res = await fetch(`/api/scrape${fresh ? '?fresh=1' : ''}`);
       const text = await res.text();
       let data;
       try {
@@ -66,8 +92,11 @@ export default function Home() {
       if (!res.ok) throw new Error(data.error || 'Scrape failed');
       setRows(data.products || []);
       const priced = typeof data.withPrice === 'number' ? ` (${data.withPrice} with a price)` : '';
+      const cacheTag = data.cached
+        ? ` · from 24h cache, ${cacheAge(data.cacheAgeMs)} old`
+        : ' · freshly scraped';
       setStatus(
-        `Done — ${data.count} products${priced} as of ${new Date(data.scrapedAt).toLocaleString()}.`
+        `Done — ${data.count} products${priced} as of ${new Date(data.scrapedAt).toLocaleString()}${cacheTag}.`
       );
     } catch (err) {
       setStatus(`Error: ${err.message}`);
@@ -84,13 +113,39 @@ export default function Home() {
         markdown prices (SKU, price, compare-at price).
       </p>
 
-      <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', margin: '24px 0' }}>
-        <button onClick={runScrape} disabled={busy} style={btn(busy)}>
+      <p style={{ color: '#6b7075', fontSize: 13, marginTop: -6 }}>
+        Results are cached for 24 hours to avoid over-hitting the site. Use
+        “Scrape fresh” or “Clear cache” to force a new pull.
+      </p>
+
+      <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', margin: '20px 0 6px' }}>
+        <button onClick={() => runScrape(false)} disabled={busy} style={btn(busy)}>
           {busy ? 'Working…' : 'Scrape & preview'}
+        </button>
+        <button onClick={() => runScrape(true)} disabled={busy} style={ghostBtn(busy)}>
+          Scrape fresh
         </button>
         <a href="/api/csv" style={{ ...btn(false), textDecoration: 'none', display: 'inline-flex', alignItems: 'center' }}>
           Download CSV
         </a>
+      </div>
+
+      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center', margin: '6px 0 20px' }}>
+        <input
+          type="password"
+          value={token}
+          onChange={(e) => setToken(e.target.value)}
+          placeholder="CRON_SECRET (for clear-cache & sync)"
+          style={input}
+        />
+        <button onClick={clearCache} disabled={busy} style={ghostBtn(busy)}>
+          Clear cache
+        </button>
+        {cacheMsg && (
+          <span style={{ color: cacheMsg.startsWith('Error') || cacheMsg.startsWith('Unauthorized') ? '#ff6b6b' : '#9aa0a6', fontSize: 13 }}>
+            {cacheMsg}
+          </span>
+        )}
       </div>
 
       {status && (
@@ -128,16 +183,10 @@ export default function Home() {
           <p style={{ color: '#9aa0a6', fontSize: 13, margin: '0 0 12px', lineHeight: 1.6 }}>
             Syncs only <code>{priced[0].sku}</code> (the first priced row) so you can verify the
             Shopify connection and the 2.4× markup before running the full list. Requires the
-            Shopify env vars set. Result is recorded in <a href="/logs" style={linkInline}>/logs</a>.
+            Shopify env vars set, and your <code>CRON_SECRET</code> in the field above. Result is
+            recorded in <a href="/logs" style={linkInline}>/logs</a>.
           </p>
           <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
-            <input
-              type="password"
-              value={token}
-              onChange={(e) => setToken(e.target.value)}
-              placeholder="CRON_SECRET (if set)"
-              style={input}
-            />
             <button onClick={() => testSync(false)} disabled={testBusy} style={ghostBtn(testBusy)}>
               {testBusy ? 'Working…' : 'Dry-run first row'}
             </button>
@@ -226,6 +275,12 @@ const th = {
   fontWeight: 600,
 };
 const td = { padding: '8px 12px', borderBottom: '1px solid #1c1f24' };
+function cacheAge(ms) {
+  if (ms == null) return '';
+  const h = ms / 3_600_000;
+  if (h < 1) return `${Math.max(1, Math.round(ms / 60000))}m`;
+  return `${h.toFixed(1)}h`;
+}
 const testPanel = { marginTop: 24, border: '1px solid #2a2f45', background: '#0e1220', borderRadius: 10, padding: 16 };
 const linkInline = { color: '#3b82f6', textDecoration: 'none' };
 const input = { background: '#0b0c0f', color: '#e8eaed', border: '1px solid #333', borderRadius: 6, padding: '8px 10px', fontSize: 13, minWidth: 180 };

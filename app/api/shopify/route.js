@@ -1,4 +1,4 @@
-import { scrapeOverstocks } from '../../../lib/scrape';
+import { getOverstocks } from '../../../lib/overstocks';
 import { syncPricesToShopify } from '../../../lib/shopify';
 import { isAuthorized } from '../../../lib/auth';
 import { writeLog, blobConfigured } from '../../../lib/log';
@@ -31,9 +31,9 @@ export async function POST(request) {
       products = body.products;
       source = 'payload';
     } else {
-      const scraped = await scrapeOverstocks();
+      const scraped = await getOverstocks(); // uses the 24h cache
       products = scraped.products;
-      source = 'scrape';
+      source = scraped.cached ? 'scrape-cache' : 'scrape';
     }
 
     if (test) {

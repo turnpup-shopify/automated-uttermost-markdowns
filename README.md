@@ -139,6 +139,20 @@ listed separately as skipped. The response summarizes `updated`, `unchanged`,
 `noMatch`, `failed`, `noPrice`, a per-SKU `changes[]` list (each with
 before→after `from`/`to`), and a `skippedNoPrice[]` list.
 
+## 24-hour scrape cache
+
+To avoid logging into uttermost.com more than necessary (and risking a block),
+the scraped result is cached in Vercel Blob for **24 hours**. `/api/scrape`,
+`/api/csv`, and `/api/shopify` all serve from this cache; the weekly cron
+refreshes it. Controls:
+
+- **Force a fresh scrape:** `/api/scrape?fresh=1`, or the **Scrape fresh** button.
+- **Clear the cache** (e.g. after a code change): the **Clear cache** button, or
+  `curl -X POST "https://<your-app>.vercel.app/api/cache?token=<CRON_SECRET>"`.
+- **Cache status:** `GET /api/cache`.
+
+Requires a Blob store; without one, every call scrapes fresh (no caching).
+
 ### Test mode (sync just the first row)
 
 Before running the full list, use **test mode** to sync only the first priced

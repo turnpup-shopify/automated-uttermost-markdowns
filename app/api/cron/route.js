@@ -1,4 +1,4 @@
-import { scrapeOverstocks } from '../../../lib/scrape';
+import { getOverstocks } from '../../../lib/overstocks';
 import { toCsv } from '../../../lib/csv';
 import { isAuthorized } from '../../../lib/auth';
 import { getBlobToken } from '../../../lib/log';
@@ -17,7 +17,8 @@ export async function GET(request) {
   }
 
   try {
-    const result = await scrapeOverstocks();
+    // Weekly scheduled refresh: scrape fresh and repopulate the 24h cache.
+    const result = await getOverstocks({ force: true });
     const csv = toCsv(result.products);
     const stamp = result.scrapedAt.replace(/[:.]/g, '-');
 
